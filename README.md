@@ -1,0 +1,2 @@
+# cubesat-bot
+Before using the bot, you must provide a Trello API key and token. These should be specified in a seperate config.py file as a Config class with members KEY, TOKEN, BOARD_ID, EMAIL + EMAIL_PASSWORD (for send requests via SMTP), and TARGET_EMAIL.
