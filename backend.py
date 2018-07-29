@@ -108,18 +108,24 @@ def refresh_done_list(board):
     else:
         return None
 
-def save_tasks(tasks):
-    first = not os.path.exists("data/week1.csv")
+def save_tasks(tasks, week_no):
+    filepath = "data/week"+week_no+".csv"
 
-    with open("data/week1.csv", 'a') as record:
+    first = not os.path.exists(filepath)
+
+    with open(filepath, 'a') as record:
         for t in tasks:
+            # If first time recording details for the week, write a header for info purposes
             if first:
-                record.write(','.join(t.__dict__.keys()) + '\n')
+                record.write("card_id, list_id, name, list_name, desc, members, labels\n")
                 first = False
-            record.write('"' + '","'.join(t.__dict__.values()) + '"')
+
+            # Join all values of the task into a csv format
+            values = [t.card_id, t.list_id, t.name, t.list_name, t.desc, t.members, t.labels]
+            record.write('"' + '","'.join(values) + '"')
             record.write('\n')
 
-def move_done_cards(board):
+def move_done_cards(board, week_no):
     url = "https://api.trello.com/1/search?" + authentication
 
     query_string = {"query":"board:"+board+" -is:archived label:Done -list:Done"}
@@ -176,7 +182,7 @@ def move_done_cards(board):
         move_card_to_list(t.card_id, done_list_id)
 
     if len(tasks_completed) > 0:
-        save_tasks(tasks_completed)
+        save_tasks(tasks_completed, week_no)
 
 def print_list(list):
     for e in list:
