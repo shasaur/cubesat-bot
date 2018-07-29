@@ -1,3 +1,3 @@
-python main.py review $(( $(date +%V) - 29))
+python main.py review $(( $(date -d 'now - 3 days - 9 hours - 15 minutes' +%V) - 29)) 
 
-at -f /home/user/CubeSat/cubesat-bot/daily-repeater.sh now + 7 day
+at -f /home/user/CubeSat/cubesat-bot/weekly-repeater.sh 9:10 am Wed
