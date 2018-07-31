@@ -225,7 +225,7 @@ def parse_email(tasks):
         p_tasks = tasks_by_person[p]
 
         for t in p_tasks:
-            email += t.name + " in " + t.list_name + "<br>\n"
+            email += t.name + " in category <u>" + t.list_name + "</u><br>\n"
 
         email += "<br>\n"
 
@@ -246,6 +246,7 @@ def send_email(content, week_no):
     msg['Subject'] = "CubeBot Weekly Review #" + week_no
     msg['From'] = me
     msg['To'] = you
+    msg['CC'] = ','.join(Config.CC_TARGET_EMAIL)
 
     # Create the body of the message (a plain-text and an HTML version).
     text = "Hello World!"
@@ -257,7 +258,7 @@ def send_email(content, week_no):
     msg.attach(part1)
     msg.attach(part2)
 
-    server.sendmail(me, you, msg.as_string())
+    server.sendmail(me, [Config.TARGET_EMAIL] + Config.CC_TARGET_EMAIL, msg.as_string())
     server.quit()
 
 def review_weekly_progress(week_no):
