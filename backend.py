@@ -1,6 +1,8 @@
 import requests
 import os.path
 import csv
+import datetime
+
 from config import Config
 
 # Import smtplib for the actual sending function
@@ -109,19 +111,21 @@ def refresh_done_list(board):
         return None
 
 def save_tasks(tasks, week_no):
-    filepath = "data/week"+week_no+".csv"
+    filepath = Config.DATA_DIR+"/week"+week_no+".csv"
 
     first = not os.path.exists(filepath)
+
+    date = datetime.datetime.now().strftime("%d-%m-%Y")
 
     with open(filepath, 'a') as record:
         for t in tasks:
             # If first time recording details for the week, write a header for info purposes
             if first:
-                record.write("card_id, list_id, name, list_name, desc, members, labels\n")
+                record.write("card_id, list_id, name, list_name, desc, members, labels, date\n")
                 first = False
 
             # Join all values of the task into a csv format
-            values = [t.card_id, t.list_id, t.name, t.list_name, t.desc, t.members, t.labels]
+            values = [t.card_id, t.list_id, t.name, t.list_name, t.desc, t.members, t.labels, date]
             record.write('"' + '","'.join(values) + '"')
             record.write('\n')
 
@@ -262,6 +266,6 @@ def send_email(content, week_no):
     server.quit()
 
 def review_weekly_progress(week_no):
-    tasks = load_tasks_from_file("data/week"+week_no+".csv")
+    tasks = load_tasks_from_file(Config.DATA_DIR+"/week"+week_no+".csv")
     parsed_review = parse_email(tasks)
     send_email(parsed_review, week_no)
