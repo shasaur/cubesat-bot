@@ -1,0 +1,19 @@
+TODO:
++ Add detailed and simple guide to using and maintaining the bot
+* Sort out maintenance for future without using Tom's VM
+* Change config file to be 3 files: config.txt, prod_config.txt, and debug_config.txt - where config.txt specifies which configuration to use (avoids having to comment out code)
+* Fix bug where completed tasks on day after review get added to the previous week's tasks
+
+NOTES:
+-- Version 1.0 will indicate a public-ready version, and hence will mark the change from a private to public repo
+
+V0.2 (in dev):
++ Add dates to each task
++ Add timelines for each person
+[ ] Add collective timeline
+
+V0.1 (current):
++ Added sweeping of tasks with Done label to the Done list
++ Added emailing Scott with a simple person-by-person breakdown of completed tasks in the last week
++ Added archiving of all tasks in the Done list
++ Added automation so that sweeping will be done daily, reviewing weekly, and archiving shortly after reviewing

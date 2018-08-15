@@ -1,7 +1,9 @@
 import requests
 import os.path
 import csv
-import datetime
+from datetime import datetime, timedelta
+from os import listdir
+from os.path import isfile, join
 
 from config import Config
 
@@ -9,6 +11,15 @@ from config import Config
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+
+# Graphing packages
+import numpy as np
+#import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 key = Config.KEY
 token = Config.TOKEN
@@ -17,7 +28,7 @@ authentication = "key="+key+"&token="+token
 
 # Structures
 class Task:
-    def __init__(self, card_id, list_id, name, desc, members, labels, list_name=None):
+    def __init__(self, card_id, list_id, name, desc, members, labels, date, list_name=None):
         self.card_id = card_id
         self.list_id = list_id
 
@@ -27,6 +38,8 @@ class Task:
         self.desc = desc
         self.members = members
         self.labels = labels
+
+        self.date = date
 
 # Commands
 def get_board_lists(board):
@@ -115,7 +128,7 @@ def save_tasks(tasks, week_no):
 
     first = not os.path.exists(filepath)
 
-    date = datetime.datetime.now().strftime("%d-%m-%Y")
+    date = datetime.now().strftime("%d-%m-%Y")
 
     with open(filepath, 'a') as record:
         for t in tasks:
@@ -200,17 +213,14 @@ def load_tasks_from_file(filepath):
 
         for line in reader:
             if not first:
-                task = Task(line[0], line[1], line[2], line[4], line[5].split(','), line[6], line[3])
+                task = Task(line[0], line[1], line[2], line[4], line[5].split(','), line[6], line[7], line[3])
                 tasks.append(task)
             else:
                 first = False
 
     return tasks
 
-def parse_email(tasks):
-    email = "<html><head></head><body>"
-    email += "<h1>Weekly Review!</h1>\n"
-
+def split_tasks_by_person(tasks):
     tasks_by_person = {}
 
     for t in tasks:
@@ -220,6 +230,63 @@ def parse_email(tasks):
 
             tasks_by_person[m].append(t)
 
+    return tasks_by_person
+
+def generate_graphs(tasks):
+    
+    tasks_by_person = split_tasks_by_person(tasks)
+    
+
+    # date = datetime.datetime.now().strftime("%d-%m-%Y")
+    levels = np.array([-5, 5, -3, 3, -1, 1])
+
+    start = datetime.today() - timedelta(days=7)
+    stop = datetime.today()# + timedelta(days=7)
+
+    # Loop through all people
+    for p in tasks_by_person.keys():
+
+        # Build task timeline data
+        names = []
+        dates = []
+        for i in range(len(tasks_by_person[p])):
+            names.append(str(i))
+            dates.append(tasks_by_person[p][i].date)
+        
+        dates = [datetime.strptime(ii, "%d-%m-%Y") for ii in dates]
+        
+        # Timeline front-end
+        fig, ax = plt.subplots()
+    
+        ax.plot((start, stop), (0, 0), 'k', alpha=.5)
+
+        for ii, (iname, idate) in enumerate(zip(names, dates)):
+            level = levels[ii % 6]
+            vert = 'top' if level < 0 else 'bottom'
+
+            ax.scatter(idate, 0, s=100, facecolor='w', edgecolor='k', zorder=9999)
+            # Plot a line up to the text
+            ax.plot((idate, idate), (0, level), c='r', alpha=.7)
+            # Give the text a faint background and align it properly
+            ax.text(idate, level, iname,
+                    horizontalalignment='right', verticalalignment=vert, fontsize=14,
+                    backgroundcolor=(1., 1., 1., .3))
+        
+        ax.get_xaxis().set_major_locator(mdates.DayLocator(interval=3))
+        ax.get_xaxis().set_major_formatter(mdates.DateFormatter("%d %b"))
+        fig.autofmt_xdate()
+        
+        plt.setp((ax.get_yticklabels() + ax.get_yticklines() +
+          list(ax.spines.values())), visible=False)
+        plt.savefig("figures/"+p.replace(" ","_")+".png")
+
+def parse_email(tasks):
+    email = "<html><head></head><body>"
+    email += "<h1>Weekly Review!</h1>\n"
+
+    tasks_by_person = split_tasks_by_person(tasks)
+
+    # Loop through all people
     for p in tasks_by_person.keys():
         if p == "":
             email += "<b>Tasks completed without anyone tagged</b><br>\n"
@@ -227,15 +294,20 @@ def parse_email(tasks):
             email += "<b>" + p + "</b>" + "<br>\n"
 
         p_tasks = tasks_by_person[p]
-
+        
+        # Loop through all of their completed tasks
         for t in p_tasks:
             email += t.name + " in category <u>" + t.list_name + "</u><br>\n"
-
+        
+        email += "<img src=\"cid:"+p.replace(" ","_")+".png\" style=\"width:50%;height:50%;\"><br>\n"
+        
         email += "<br>\n"
 
     email += "<i>With love,<br>\nCubeBot</i>"
-
     email += "</body></html>"
+    
+    print(email)
+
     return email
 
 def send_email(content, week_no):
@@ -251,6 +323,20 @@ def send_email(content, week_no):
     msg['From'] = me
     msg['To'] = you
     msg['CC'] = ','.join(Config.CC_TARGET_EMAIL)
+    
+    # Image
+    mypath = "figures/"
+    files_in_dir = [f for f in listdir("figures/") if isfile(join(mypath, f))]
+
+    for f in files_in_dir:
+        pic_filepath = mypath+f
+        fp = open(pic_filepath, 'rb')
+        img = MIMEImage(fp.read())
+        fp.close()
+
+        img.add_header('Content-ID', '<{}>'.format(f))
+        print(f)
+        msg.attach(img)
 
     # Create the body of the message (a plain-text and an HTML version).
     text = "Hello World!"
@@ -267,5 +353,6 @@ def send_email(content, week_no):
 
 def review_weekly_progress(week_no):
     tasks = load_tasks_from_file(Config.DATA_DIR+"/week"+week_no+".csv")
+    generate_graphs(tasks)
     parsed_review = parse_email(tasks)
     send_email(parsed_review, week_no)
