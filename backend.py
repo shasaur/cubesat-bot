@@ -128,8 +128,6 @@ def save_tasks(tasks, week_no):
 
     first = not os.path.exists(filepath)
 
-    date = datetime.now().strftime("%d-%m-%Y")
-
     with open(filepath, 'a') as record:
         for t in tasks:
             # If first time recording details for the week, write a header for info purposes
@@ -138,7 +136,7 @@ def save_tasks(tasks, week_no):
                 first = False
 
             # Join all values of the task into a csv format
-            values = [t.card_id, t.list_id, t.name, t.list_name, t.desc, t.members, t.labels, date]
+            values = [t.card_id, t.list_id, t.name, t.list_name, t.desc, t.members, t.labels, t.date]
             record.write('"' + '","'.join(values) + '"')
             record.write('\n')
 
@@ -153,10 +151,16 @@ def move_done_cards(board, week_no):
     list_map = {} # id -> name
     label_map = {} # id -> name
     member_map = {} # id -> name
+
+    date = datetime.now().strftime("%d-%m-%Y")
+
     for c in response.json()["cards"]:
         task = Task(c["id"], c["idList"], c["name"], c["desc"],
                     c["idMembers"],
-                    c["idLabels"])
+                    c["idLabels"],
+                    date)
+        
+        print("Task found:", task.labels)
 
         tasks_completed.append(task)
 
@@ -171,7 +175,9 @@ def move_done_cards(board, week_no):
     for list_id in list_map.keys():
         list_map[list_id] = get_list_info(list_id)["name"]
 
+    print("Going through unique labels in all labels")
     for label_id in label_map.keys():
+        print(label_id)
         label_map[label_id] = get_label_info(label_id)["name"]
 
     for label_id in member_map.keys():
@@ -238,7 +244,7 @@ def generate_graphs(tasks):
     
 
     # date = datetime.datetime.now().strftime("%d-%m-%Y")
-    levels = np.array([-5, 5, -3, 3, -1, 1])
+    levels = np.array([-1.5, 1.5, -1.0, 1.0, -0.5, 0.5])
 
     start = datetime.today() - timedelta(days=7)
     stop = datetime.today()# + timedelta(days=7)
@@ -250,7 +256,7 @@ def generate_graphs(tasks):
         names = []
         dates = []
         for i in range(len(tasks_by_person[p])):
-            names.append(str(i))
+            names.append(str(i+1))
             dates.append(tasks_by_person[p][i].date)
         
         dates = [datetime.strptime(ii, "%d-%m-%Y") for ii in dates]
@@ -296,8 +302,9 @@ def parse_email(tasks):
         p_tasks = tasks_by_person[p]
         
         # Loop through all of their completed tasks
-        for t in p_tasks:
-            email += t.name + " in category <u>" + t.list_name + "</u><br>\n"
+        for t in range(len(p_tasks)):
+            task = p_tasks[t]
+            email += str(t+1) + ") " + task.name + " in category <u>" + task.list_name + "</u><br>\n"
         
         email += "<img src=\"cid:"+p.replace(" ","_")+".png\" style=\"width:50%;height:50%;\"><br>\n"
         
@@ -329,14 +336,15 @@ def send_email(content, week_no):
     files_in_dir = [f for f in listdir("figures/") if isfile(join(mypath, f))]
 
     for f in files_in_dir:
-        pic_filepath = mypath+f
-        fp = open(pic_filepath, 'rb')
-        img = MIMEImage(fp.read())
-        fp.close()
+        if not f == ".png.png":
+            pic_filepath = mypath+f
+            fp = open(pic_filepath, 'rb')
+            img = MIMEImage(fp.read())
+            fp.close()
 
-        img.add_header('Content-ID', '<{}>'.format(f))
-        print(f)
-        msg.attach(img)
+            img.add_header('Content-ID', '<{}>'.format(f))
+            print(f)
+            msg.attach(img)
 
     # Create the body of the message (a plain-text and an HTML version).
     text = "Hello World!"
